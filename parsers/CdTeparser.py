@@ -1,6 +1,5 @@
 import sys
 import numpy as np
-import polars as pl
 import struct
 import statistics
 
