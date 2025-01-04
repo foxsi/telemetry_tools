@@ -84,10 +84,10 @@ def pingparser(data: bytes):
         return {}, error_flag
     
     unixtime_raw = int.from_bytes(data[0:4], "big")
-    global_errors_raw = int.from_bytes(data[5:6], "big")
+    global_errors_int = int.from_bytes(data[5:6], "big")
 
     nsys = (len(data) - 6) // 4     # count systems in the rest of the packet
-    result = {"unixtime": unixtime_raw, "global_errors_int": global_errors_raw}
+    result = {"unixtime": unixtime_raw, "global_errors_int": global_errors_int}
 
     for k in range(nsys):   # k indexes systems
         i = 6 + 4*k         # i indexes the data array
@@ -133,8 +133,8 @@ if __name__ == "__main__":
             
             data = f.read()
             for chunk in chunks(data, 46):
-                p = pingparser(chunk)
-                pprint(p[0][9]['system_error_str']['reading_packet'])
+                p, e = pingparser(chunk)
+                pprint(p)
 
     else:
         print("use like this:\n\t> python parsers/Pingparser.py\n\t\tor\n\t>python parsers/Pingparser.py path/to/ping/file.log")
