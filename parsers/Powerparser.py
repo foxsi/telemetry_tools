@@ -5,7 +5,7 @@ import numpy as np
 
 def adcparser(data: bytes):
     """
-    Parse ADC measurements of voltage and current into a `numpy.ndarray`.
+    Parse ADC measurements of voltage and current into a `dict`.
 
     Paramaters
     ----------
