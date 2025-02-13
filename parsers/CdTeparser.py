@@ -96,6 +96,8 @@ def CdTerawalldata2parser(datalist):
     Lti = []
     Lunixtime = []
     Llivetime = []
+    Ladc_al = []
+    Ladc_pt = []
     Ladccmn_al = []
     Ladccmn_pt = []
     Lcmn_al=[]
@@ -298,6 +300,7 @@ def CdTerawalldata2parser(datalist):
                                     #print(eventid)
                                 if(k==0):
                                     array_chflag=[]
+                                    array_adc=[]
                                     array_adccmn=[]
                                     array_index=[]
                                     array_cmn=[]
@@ -308,41 +311,49 @@ def CdTerawalldata2parser(datalist):
                                 array_hitnum[k] = hitnum
 
                                 if(k==0):
+                                    array_adc.append([])
                                     array_adccmn.append([])
                                     array_index.append([])
                                     array_cmn.append([])
                                     for i in range(hitnum):
+                                        array_adc[0].append(adc[i])
                                         array_adccmn[0].append(adc[i]-cmn)
                                         array_index[0].append(index[i])
                                     array_cmn[0].append(cmn)
 
                                 elif(k==1):
                                     for i in range(hitnum):
+                                        array_adc[0].append(adc[i])
                                         array_adccmn[0].append(adc[i]-cmn)
                                         array_index[0].append(index[i]+64)
                                     array_cmn[0].append(cmn)
                                     if(array_hitnum[0]+array_hitnum[1]<noofch*2):
                                         for i in range(noofch*2-(array_hitnum[0]+array_hitnum[1])):
+                                            array_adc[0].append(0)
                                             array_adccmn[0].append(0)
                                             array_index[0].append(128)
                                     
 
                                 elif(k==2):
+                                    array_adc.append([])
                                     array_adccmn.append([])
                                     array_index.append([])
                                     array_cmn.append([])
                                     for i in range(hitnum):
+                                        array_adc[1].append(adc[i])
                                         array_adccmn[1].append(adc[i]-cmn)
                                         array_index[1].append(index[i])
                                     array_cmn[1].append(cmn)
 
                                 elif(k==3):
                                     for i in range(hitnum):
+                                        array_adc[1].append(adc[i])
                                         array_adccmn[1].append(adc[i]-cmn)
                                         array_index[1].append(index[i]+64)
                                     array_cmn[1].append(cmn)
                                     if(array_hitnum[2]+array_hitnum[3]<noofch*2):
                                         for i in range(noofch*2-(array_hitnum[2]+array_hitnum[3])):
+                                            array_adc[1].append(0)
                                             array_adccmn[1].append(0)
                                             array_index[1].append(128)
 
@@ -364,6 +375,8 @@ def CdTerawalldata2parser(datalist):
                     #print(unixtime)
                     Lunixtime.append(unixtime)
                     Llivetime.append(livetime)
+                    Ladc_al.append(array_adc[1])
+                    Ladc_pt.append(array_adc[0])
                     Ladccmn_al.append(array_adccmn[1])
                     Ladccmn_pt.append(array_adccmn[0])
                     Lcmn_al.append(array_cmn[1])
@@ -389,12 +402,14 @@ def CdTerawalldata2parser(datalist):
     #   dtype=[('t', '<f4', (3,)), ('y', '<i4')])
 
     evt_num = len(Lti)
-    dt = np.dtype({'names':('ti', 'unixtime', 'livetime', 'adc_cmn_al', 'adc_cmn_pt', 'cmn_al', 'cmn_pt', 'index_al', 'index_pt', 'hitnum_al', 'hitnum_pt', 'flag_pseudo'),
-                   'formats':('u4', 'u4', 'u4', '(128,)i4', '(128,)i4', '(2,)i4', '(2,)i4', '(128,)u1', '(128,)u1', 'u1', 'u1', 'u1')}) # u1==np.uint8,u4==np.uint32, i4==int32
+    dt = np.dtype({'names':('ti', 'unixtime', 'livetime', 'adc_al', 'adc_pt', 'adc_cmn_al', 'adc_cmn_pt', 'cmn_al', 'cmn_pt', 'index_al', 'index_pt', 'hitnum_al', 'hitnum_pt', 'flag_pseudo'),
+                   'formats':('u4', 'u4', 'u4', '(128,)i4', '(128,)i4', '(128,)i4', '(128,)i4', '(2,)i4', '(2,)i4', '(128,)u1', '(128,)u1', 'u1', 'u1', 'u1')}) # u1==np.uint8,u4==np.uint32, i4==int32
     df = np.zeros(evt_num, dtype=dt)
     df['ti'] = np.array(Lti,dtype=np.uint32)
     df['unixtime'] = np.array(Lunixtime,dtype=np.uint32)
     df['livetime'] = np.array(Llivetime,dtype=np.uint32)
+    df['adc_al'] = np.array(Ladc_al,dtype=np.int32)
+    df['adc_pt'] = np.array(Ladc_pt,dtype=np.int32)
     df['adc_cmn_al'] = np.array(Ladccmn_al,dtype=np.int32)
     df['adc_cmn_pt'] = np.array(Ladccmn_pt,dtype=np.int32)
     df['cmn_al'] = np.array(Lcmn_al,dtype=np.uint32)
