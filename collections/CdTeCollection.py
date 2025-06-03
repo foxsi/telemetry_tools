@@ -398,10 +398,11 @@ class CdTeCollection:
         but want structure to give the common mode for each ADC value.
         """
         asic0 = np.nonzero(self.event_dataframe['index_pt']<64)
-        asic1 = np.nonzero((self.event_dataframe['index_pt']>=64) and (self.event_dataframe['index_pt']<128))
+        asic1 = np.nonzero((self.event_dataframe['index_pt']>=64) & (self.event_dataframe['index_pt']<128))
         common_modes = np.zeros(np.shape(self.event_dataframe['adc_cmn_pt']))
-        common_modes[asic0] = self.event_dataframe['cmn_pt'][0]
-        common_modes[asic1] = self.event_dataframe['cmn_pt'][1]
+        # now look at the asic common mode values and then extract the indices you need
+        common_modes[asic0] = self.event_dataframe['cmn_pt'][:,0][asic0[0]]
+        common_modes[asic1] = self.event_dataframe['cmn_pt'][:,1][asic1[0]]
         return common_modes
     
     def get_al_cmn(self):
@@ -413,10 +414,10 @@ class CdTeCollection:
         but want structure to give the common mode for each ADC value.
         """
         asic0 = np.nonzero(self.event_dataframe['index_al']<64)
-        asic1 = np.nonzero((self.event_dataframe['index_al']>=64) and (self.event_dataframe['index_al']<128))
+        asic1 = np.nonzero((self.event_dataframe['index_al']>=64) & (self.event_dataframe['index_al']<128))
         common_modes = np.zeros(np.shape(self.event_dataframe['adc_cmn_al']))
-        common_modes[asic0] = self.event_dataframe['cmn_al'][0]
-        common_modes[asic1] = self.event_dataframe['cmn_al'][1]
+        common_modes[asic0] = self.event_dataframe['cmn_al'][:,0][asic0[0]]
+        common_modes[asic1] = self.event_dataframe['cmn_al'][:,1][asic1[0]]
         return common_modes
 
     def add_cmn(self, new_events_index):
@@ -472,11 +473,10 @@ class CdTeCollection:
             pt_adc = np.ndarray.flatten(self.event_dataframe['adc_cmn_pt'][new])
             al_adc = np.ndarray.flatten(self.event_dataframe['adc_cmn_al'][new])
         else:
-            try:
-                pt_adc = np.ndarray.flatten(self.event_dataframe['adc_pt'][new])
-                al_adc = np.ndarray.flatten(self.event_dataframe['adc_al'][new])
-            except AttributeError:
-                pt_adc, al_adc = self.add_cmn(new)
+            pt_adc = np.ndarray.flatten(self.event_dataframe['adc_pt'][new])
+            al_adc = np.ndarray.flatten(self.event_dataframe['adc_al'][new])
+            # used to be:
+            # pt_adc, al_adc = self.add_cmn(new)
         all_adc = np.concatenate((pt_adc, al_adc))
 
         #**********************************************************************
