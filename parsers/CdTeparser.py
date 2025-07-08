@@ -561,13 +561,9 @@ def CdTedehkparser(data: bytes):
         b"\x5a\x5a\x01\x01\x05\x05\x05\x05\x5a\x5a\x5a\x5a": "canisters stopped",
     }
 
-    status = ""
-    try:
-        status = status_converter[status_raw]
-    except KeyError:
-        print("Could not parse CdTe canister status")
-        status = status_raw.hex()
-        error_flag = True
+    default_status = "..."
+    status = status_converter.get(status_raw, default_status)
+    error_flag = True if status==default_status else error_flag
 
     ping = [can_ping for can_ping in ping_raw]
     temp = int.from_bytes(temp_raw, 'big')
