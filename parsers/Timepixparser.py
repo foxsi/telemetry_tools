@@ -33,20 +33,25 @@ class ReadRatesPacket:
 def unpack_read_all_hk_packet(packet):
     data = ReadALLHKPacket()
 
+    # Board temps
     data.board_t1 = packet[0] + (packet[1] << 8)
     data.board_t2 = packet[2] + (packet[3] << 8)
 
+    # ASIC voltages and currents
     for i in range(4):
         voltage = packet[4 + i * 4] + (packet[5 + i * 4] << 8)
         current = packet[6 + i * 4] + (packet[7 + i * 4] << 8)
         data.asic_voltages[i] = voltage
         data.asic_currents[i] = current
 
+    # FPGA values
     for i in range(3):
         data.fpga_values[i] = packet[20 + i * 2] + (packet[21 + i * 2] << 8)
-    data.rpi_storage_fill = packet[26]
-    return data
 
+    # RPI storage fill - read from byte 26
+    data.rpi_storage_fill = packet[26]
+
+    return data
 
 def unpack_read_rates_packet(packet):
     data = ReadRatesPacket()
@@ -115,7 +120,7 @@ def get_hvps_status(flags_set):
         return "off"
 
 
-def timepix_parser(byte_data):
+def timepix_hk_parser(byte_data):
     """ Take in a frame of raw bytes for a Timepix frame and return 
     usable values. 
     
@@ -133,17 +138,16 @@ def timepix_parser(byte_data):
     timepix_dict = dict()
 
     # separate bytes
-    rec_ff_unix = byte_data[0:6] #first 6 bytes 
-    timepix_dict["unixtime"] = rec_ff_unix # does this need converted?
-    rec_flag_byte = byte_data[6:7] #7th byte 
+    rec_ff_unix = byte_data[2:6] #first 6 bytes 
+    timepix_dict["unixtime"] = int.from_bytes(rec_ff_unix, byteorder='big')
+    rec_flag_byte = byte_data[6] #7th byte 
     rec_read_hk = byte_data[7:34]
     rec_read_rates_bytes = byte_data[34:]
 
     # undo flag bytes
-    byte_value = rec_flag_byte  # Corrected byte value creation
-    flags_set = get_flags_from_byte(byte_value[0])
+    flags_set = get_flags_from_byte(rec_flag_byte)
 
-    #undo the hk_packet and get info
+    # undo the hk_packet and get info
     received_data = unpack_read_all_hk_packet(rec_read_hk)
     timepix_dict["board_t1"] = received_data.board_t1
     timepix_dict["board_t2"] = received_data.board_t2
@@ -165,13 +169,65 @@ def timepix_parser(byte_data):
 
     return timepix_dict
 
+NUM_PHOTONS = 360
+NUM_PCAPS = 4
+
+def unpack_photon(data_bytes):
+    val = int.from_bytes(data_bytes, byteorder="big")
+    x     = (val >> 23) & 0x1FF
+    y     = (val >> 14) & 0x1FF
+    tot   = (val >> 4)  & 0x3FF
+    spare = val & 0xF
+    return x, y, tot, spare
+
+def timepix_pc_parser(packet_bytes):
+    if len(packet_bytes) != NUM_PHOTONS * 4:
+        raise ValueError("Packet size is not 1440 bytes")
+    xs, ys, tots, spares = [], [], [], []
+    for i in range(NUM_PHOTONS):
+        x, y, tot, spare = unpack_photon(packet_bytes[i*4:i*4+4])
+        xs.append(x)
+        ys.append(y)
+        tots.append(tot)
+        spares.append(spare)
+    
+    dt = np.dtype({'names': ('x', 'y', 'tot', 'spare'),
+                   'formats': ('u2', 'u2', 'u2', 'u2')})
+    df = np.zeros(NUM_PHOTONS, dtype=dt)
+    df['x'] = np.array(xs, dtype=np.uint16)
+    df['y'] = np.array(ys, dtype=np.uint16)
+    df['tot'] = np.array(tots, dtype=np.uint16)
+    df['spare'] = np.array(spares, dtype=np.uint16)
+    return np.array(xs), np.array(ys), np.array(tots), np.array(spares)
+
+def unpack_pcap_size(data_bytes):
+    """Unpack 2 bytes into a PCAP size (uint16)."""
+    if len(data_bytes) != 2:
+        raise ValueError("Data length must be exactly 2 bytes")
+    return int.from_bytes(data_bytes, byteorder="big")
+
+def timepix_pcap_parser(packet_bytes):
+    """Unpack 8-byte packet into 4 PCAP sizes (uint16)."""
+    expected_len = NUM_PCAPS * 2
+    if len(packet_bytes) != expected_len:
+        raise ValueError(f"Packet size must be {expected_len} bytes")
+    sizes = []
+    for i in range(NUM_PCAPS):
+        size = unpack_pcap_size(packet_bytes[i*2:i*2+2])
+        sizes.append(size)
+    return np.array(sizes, dtype=np.uint16)
+
+
 ########################################################
 
 # test from file
 def timepix_parser_test():
     # file is "timepix_fake_log.txt"
-    with open('/Users/kris/Downloads/timepix_fake_log.txt','rb') as f: 
+    fname = '/Users/kris/Downloads/timepix_fake_log.txt'
+    fname = '/Users/thanasi/Documents/FOXSI/Data/formatter/logs/2025/apr30/full/telemetry/30-4-2025_15-21-42/timepix_tpx.log'
+    with open(fname,'rb') as f: 
         data = f.read()
+        data = data[14*38:15*38]
 
     # Savannah's code directly
     rec_ff_unix = data[0:6] #first 6 bytes 
@@ -192,6 +248,9 @@ def timepix_parser_test():
 
     # Modified code into one parser
     timepix_data = timepix_parser(byte_data=data)
+
+    import pprint
+    pprint.pprint(timepix_data)
 
     # now check that both agree
     assert timepix_data["unixtime"]==rec_ff_unix, "Unixtime does not match."
