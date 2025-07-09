@@ -1,4 +1,9 @@
 #flag_function_tpx_ex.py
+import sys, os
+from matplotlib import pyplot as plt
+import numpy as np
+
+
 
 class FlagByte:
     def __init__(self):
@@ -138,7 +143,7 @@ def timepix_hk_parser(byte_data):
     timepix_dict = dict()
 
     # separate bytes
-    rec_ff_unix = byte_data[2:6] #first 6 bytes 
+    rec_ff_unix = byte_data[2:6] 
     timepix_dict["unixtime"] = int.from_bytes(rec_ff_unix, byteorder='big')
     rec_flag_byte = byte_data[6] #7th byte 
     rec_read_hk = byte_data[7:34]
@@ -182,7 +187,7 @@ def unpack_photon(data_bytes):
 
 def timepix_pc_parser(packet_bytes):
     if len(packet_bytes) != NUM_PHOTONS * 4:
-        raise ValueError("Packet size is not 1440 bytes")
+        raise ValueError("Packet size is " + str(len(packet_bytes)) + ", not 1440 bytes")
     xs, ys, tots, spares = [], [], [], []
     for i in range(NUM_PHOTONS):
         x, y, tot, spare = unpack_photon(packet_bytes[i*4:i*4+4])
@@ -191,6 +196,7 @@ def timepix_pc_parser(packet_bytes):
         tots.append(tot)
         spares.append(spare)
     
+    # adapted from Savannah's code to store outputs in an np structured array:
     dt = np.dtype({'names': ('x', 'y', 'tot', 'spare'),
                    'formats': ('u2', 'u2', 'u2', 'u2')})
     df = np.zeros(NUM_PHOTONS, dtype=dt)
@@ -198,7 +204,7 @@ def timepix_pc_parser(packet_bytes):
     df['y'] = np.array(ys, dtype=np.uint16)
     df['tot'] = np.array(tots, dtype=np.uint16)
     df['spare'] = np.array(spares, dtype=np.uint16)
-    return np.array(xs), np.array(ys), np.array(tots), np.array(spares)
+    return df
 
 def unpack_pcap_size(data_bytes):
     """Unpack 2 bytes into a PCAP size (uint16)."""
@@ -221,16 +227,14 @@ def timepix_pcap_parser(packet_bytes):
 ########################################################
 
 # test from file
-def timepix_parser_test():
+def timepix_parser_test(path:str):
     # file is "timepix_fake_log.txt"
-    fname = '/Users/kris/Downloads/timepix_fake_log.txt'
-    fname = '/Users/thanasi/Documents/FOXSI/Data/formatter/logs/2025/apr30/full/telemetry/30-4-2025_15-21-42/timepix_tpx.log'
-    with open(fname,'rb') as f: 
+    with open(path,'rb') as f: 
         data = f.read()
-        data = data[14*38:15*38]
+        data = data[0:38]
 
     # Savannah's code directly
-    rec_ff_unix = data[0:6] #first 6 bytes 
+    rec_ff_unix = int.from_bytes(data[2:6], byteorder='big')
     rec_flag_byte = data[6:7] #7th byte 
     rec_read_hk = data[7:34]
     rec_read_rates_bytes = data[34:]
@@ -247,7 +251,7 @@ def timepix_parser_test():
     flx_rate = read_rates_data.flx_rate
 
     # Modified code into one parser
-    timepix_data = timepix_parser(byte_data=data)
+    timepix_data = timepix_hk_parser(byte_data=data)
 
     import pprint
     pprint.pprint(timepix_data)
@@ -265,78 +269,47 @@ def timepix_parser_test():
     assert timepix_data["flags"]==flags_set, "Flags does not match."
     print("Timepix test passed.")
 
+def timepix_parsers_check(path:str):
+    """ A visual check of confirm the timepix_pc.log file """
+    with open(path, 'rb') as pc_f:
+        pc_d = pc_f.read()
+        # select only the first frame (1440 bytes) of data for plotting:
+        this_pc = pc_d[0:NUM_PHOTONS*4]
+
+        # parse it:
+        pc = timepix_pc_parser(this_pc)
+
+        print('x range:\t', np.min(pc['x']), np.max(pc['x']))
+        print('y range:\t', np.min(pc['y']), np.max(pc['y']))
+        print('tot range:\t', np.min(pc['tot']), np.max(pc['tot']))
+                
+        fig, ax = plt.subplots()
+        
+        scat = ax.scatter(pc['x'], pc['y'], c=pc['tot'], cmap='plasma')
+        ax.set_aspect('equal', 'box')
+        ax.set_xlabel('pixel x')
+        ax.set_ylabel('pixel y')
+        ax.set_title('Timepix event data image sample')
+        bar = fig.colorbar(scat, ax=ax, location='right')
+        bar.ax.set_title('ToT')
+        plt.show()
+
+
 
 if __name__=="__main__":
-    timepix_parser_test()
+    if len(sys.argv) != 2:
+        print("pass the path to directory containing timepix log files.")
+        sys.exit(1)
 
-    ## original Savannah's runnign code
-    # with open('./timepix_fake_log.txt','rb') as f: 
-    #     data = f.read()
+    pc_name = 'timepix_pc.log'
+    pcap_name = 'timepix_pcap.log'
+    hk_name = 'timepix_tpx.log'
 
-    # print("length of data frame from text log :",len(data))
+    # Event data:
+    pc_path = os.path.join(sys.argv[1], pc_name)
+    hk_path = os.path.join(sys.argv[1], hk_name)
 
+    timepix_parser_test(hk_path)
+    timepix_parsers_check(pc_path)
 
-    # rec_ff_unix = data[0:6] #first 6 bytes 
-    # rec_flag_byte = data[6:7] #7th byte 
-    # rec_read_hk = data[7:34]
-    # rec_read_rates_bytes = data[34:]
-
-    # print("rec'd values: ")
-    # print("rec_ff_unix:",rec_ff_unix)
-    # print("rec_flag_byte:", rec_flag_byte)
-    # print("rec_read_hk:",rec_read_hk)
-    # print("rec_read_rates:",rec_read_rates_bytes)
-
-    # #undo flag bytes 
-
-    # byte_value = rec_flag_byte  # Corrected byte value creation
-    # flags_set = get_flags_from_byte(byte_value[0])
-    # print("Rec'd flags set:", flags_set)
-
-    # #undo the hk_packet 
-    # received_data = unpack_read_all_hk_packet(rec_read_hk)#(read_all_hk_packet)
-    # print("Received Board T1:", received_data.board_t1)
-    # print("Received Board T2:", received_data.board_t2)
-    # print("Received ASIC Voltages:", received_data.asic_voltages)
-    # print("Received ASIC Currents:", received_data.asic_currents)
-    # print("Received FPGA Voltages:", received_data.fpga_values)
-    # print("Received RPI Storage Fill:", received_data.rpi_storage_fill)
-
-    # read_rates_data = unpack_read_rates_packet(rec_read_rates_bytes)
-    # mean_tot = read_rates_data.mean_tot
-    # flx_rate = read_rates_data.flx_rate
-    # print("Mean Tot:", mean_tot)
-    # print("Flx Rate:", flx_rate)
-
-
-    # print("check all flags:")
-    # defined_flag(flags_set)
-
-    # print("____________")
-
-    # print("check_hvps function:")
-    # check_hvps(flags_set)
-
-    ## ABOVE'S OUTPUT
-    # length of data frame from text log : 38
-    # rec'd values: 
-    # rec_ff_unix: b'\r\x00e\x89V\t'
-    # rec_flag_byte: b'\x04'
-    # rec_read_hk: b'\xfa\x00,\x0190\x1d\t\xa0[\xe8\x03\x9e*\xe9\x03\x06\xeb\xfb\t.\x16\x85\x1ac\x00\n'
-    # rec_read_rates: b'\x88\x13|\x15'
-    # Rec'd flags set: [2]
-    # Received Board T1: 250
-    # Received Board T2: 300
-    # Received ASIC Voltages: [12345, 23456, 10910, 60166]
-    # Received ASIC Currents: [2333, 1000, 1001, 2555]
-    # Received FPGA Voltages: [5678, 6789, 99]
-    # Received RPI Storage Fill: 10
-    # Mean Tot: 5000
-    # Flx Rate: 5500
-    # check all flags:
-    # Flags are set:
-    # Software Error
-    # ____________
-    # check_hvps function:
-    # hvps off
-
+    # todo: include pcap test.
