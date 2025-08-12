@@ -186,6 +186,7 @@ def unpack_photon(data_bytes):
     return x, y, tot, spare
 
 def timepix_pc_parser(packet_bytes):
+    """ parse a single frame (1440 bytes) of Timepix photon-counting data and output a np structured array."""
     if len(packet_bytes) != NUM_PHOTONS * 4:
         raise ValueError("Packet size is " + str(len(packet_bytes)) + ", not 1440 bytes")
     xs, ys, tots, spares = [], [], [], []
@@ -227,7 +228,7 @@ def timepix_pcap_parser(packet_bytes):
 ########################################################
 
 # test from file
-def timepix_parser_test(path:str):
+def timepix_hk_parser_test(path:str):
     # file is "timepix_fake_log.txt"
     with open(path,'rb') as f: 
         data = f.read()
@@ -269,7 +270,7 @@ def timepix_parser_test(path:str):
     assert timepix_data["flags"]==flags_set, "Flags does not match."
     print("Timepix test passed.")
 
-def timepix_parsers_check(path:str):
+def timepix_pc_parser_check(path:str):
     """ A visual check of confirm the timepix_pc.log file """
     with open(path, 'rb') as pc_f:
         pc_d = pc_f.read()
@@ -294,6 +295,14 @@ def timepix_parsers_check(path:str):
         bar.ax.set_title('ToT')
         plt.show()
 
+def timepix_pcap_parser_check(path:str):
+    with open(path, 'rb') as pc_f:
+        pc_d = pc_f.read()
+        # select only the first frame (8 bytes) of data for printing:
+        these_pcaps = pc_d[6:6+NUM_PCAPS*2]
+        pcaps = timepix_pcap_parser(these_pcaps)
+        print("pcap sizes: ", pcaps)
+
 
 
 if __name__=="__main__":
@@ -307,9 +316,11 @@ if __name__=="__main__":
 
     # Event data:
     pc_path = os.path.join(sys.argv[1], pc_name)
+    pcap_path = os.path.join(sys.argv[1], pcap_name)
     hk_path = os.path.join(sys.argv[1], hk_name)
 
-    timepix_parser_test(hk_path)
-    timepix_parsers_check(pc_path)
+    timepix_hk_parser_test(hk_path)
+    timepix_pcap_parser_check(pcap_path)
+    timepix_pc_parser_check(pc_path)
 
     # todo: include pcap test.
