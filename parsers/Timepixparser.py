@@ -224,7 +224,68 @@ def timepix_pcap_parser(packet_bytes):
         sizes.append(size)
     return np.array(sizes, dtype=np.uint16)
 
+########################################################
 
+def timepix_pc_to_png(packet_bytes, outfile):
+    """ parse a single frame (1440 bytes) of Timepix photon-counting data write as PNG to file"""
+    if len(packet_bytes) != NUM_PHOTONS * 4:
+        raise ValueError("Packet size is " + str(len(packet_bytes)) + ", not 1440 bytes")
+    
+    img = np.zeros((512,512), dtype=np.uint16)
+    
+    for i in range(NUM_PHOTONS):
+        x, y, tot, spare = unpack_photon(packet_bytes[i*4:i*4+4])
+        img[x,y] = tot
+    
+    import matplotlib.image
+    matplotlib.image.imsave(outfile, img)
+    
+def timepix_pc_mov(infile, outfile):
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+            
+    with open(infile, "rb") as f:
+        d = f.read()
+    
+    framesize = NUM_PHOTONS * 4
+    n_im = len(d) // framesize
+    mov = np.zeros((512,512,n_im), dtype=np.uint16)
+    
+    # chunk up all the source data into frames
+    d = chunks(d, framesize)
+    
+    for i,frame in enumerate(d):
+        # print(len(frame))
+        # print(max(frame), ", ", min(frame))
+        for k in range(NUM_PHOTONS):
+            x, y, tot, spare = unpack_photon(frame[k*4:k*4+4])
+            mov[x,y,i] = tot
+        
+    from matplotlib import pyplot as plt
+    import matplotlib.animation as animation
+    
+    fig, ax = plt.subplots()
+    ax.set_title("Jan. 12 2025 telemetry")
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_xlim([0,512])
+    ax.set_ylim([0,512])
+    ims = []
+    cmap = 'gray'
+    for k in range(len(mov[1,1,:])):
+        im = ax.imshow(mov[:,:,k], vmin=0, vmax=1024, cmap=cmap, animated=True)
+        tx = ax.text(50,50,"frame: "+str(k), color='white')
+        if i == 0:
+            ax.imshow(mov[:,:,k], vmin=0, vmax=1024, cmap=cmap)  # show an initial one first
+        ims.append([im, tx])
+    
+    ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat_delay=500)
+
+    ani.save(outfile)
+    plt.show()
+    
 ########################################################
 
 # test from file
@@ -305,22 +366,25 @@ def timepix_pcap_parser_check(path:str):
 
 
 
-if __name__=="__main__":
-    if len(sys.argv) != 2:
-        print("pass the path to directory containing timepix log files.")
-        sys.exit(1)
+# if __name__=="__main__":
+#     if len(sys.argv) != 2:
+#         print("pass the path to directory containing timepix log files.")
+#         sys.exit(1)
 
-    pc_name = 'timepix_pc.log'
-    pcap_name = 'timepix_pcap.log'
-    hk_name = 'timepix_tpx.log'
+#     pc_name = 'timepix_pc.log'
+#     pcap_name = 'timepix_pcap.log'
+#     hk_name = 'timepix_tpx.log'
 
-    # Event data:
-    pc_path = os.path.join(sys.argv[1], pc_name)
-    pcap_path = os.path.join(sys.argv[1], pcap_name)
-    hk_path = os.path.join(sys.argv[1], hk_name)
+#     # Event data:
+#     pc_path = os.path.join(sys.argv[1], pc_name)
+#     pcap_path = os.path.join(sys.argv[1], pcap_name)
+#     hk_path = os.path.join(sys.argv[1], hk_name)
 
-    timepix_hk_parser_test(hk_path)
-    timepix_pcap_parser_check(pcap_path)
-    timepix_pc_parser_check(pc_path)
+#     timepix_hk_parser_test(hk_path)
+#     timepix_pcap_parser_check(pcap_path)
+#     timepix_pc_parser_check(pc_path)
 
-    # todo: include pcap test.
+#     # todo: include pcap test.
+
+if __name__ == "__main__":
+    timepix_pc_mov("/Users/thanasi/Documents/FOXSI/Data/formatter/logs/2026/jan12/telemetry/12-1-2026_11-24-39/timepix_pc.log", "/Users/thanasi/Downloads/tpxpc_jan12.mp4")
