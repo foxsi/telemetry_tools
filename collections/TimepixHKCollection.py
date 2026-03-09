@@ -4,7 +4,7 @@ Timepix collection to handle the read-in RTD data.
 
 import numpy as np
 
-class TimepixCollection:
+class TimepixHKCollection:
     """
     A container for Timepix data after being parsed.
     

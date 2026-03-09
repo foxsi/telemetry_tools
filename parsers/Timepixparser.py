@@ -304,7 +304,6 @@ def timepix_pcap_parser_check(path:str):
         print("pcap sizes: ", pcaps)
 
 
-
 if __name__=="__main__":
     if len(sys.argv) != 2:
         print("pass the path to directory containing timepix log files.")
