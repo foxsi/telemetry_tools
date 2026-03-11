@@ -74,14 +74,14 @@ def get_flags_from_byte(byte_value):
 
 def defined_flag(flags_set):
     flag_messages = {
-        0: "Warning: large UDPs",
+        0: "Boot Warning",
         1: "HVPS Bias On",
         2: "Software Error",
         3: "Storage Warning",
         4: "Board Temp Exceeding",
         5: "FPGA Temp Exceeding",
-        6: "In HIGHPOWER",
-        7: "Timeout"
+        6: "PID Check Fail",
+        7: "R/W Error"
     }
 
     if not flags_set:
@@ -93,14 +93,14 @@ def defined_flag(flags_set):
                 print(flag_messages[flag])
 
 FLAG_MESSAGES = {
-        0: "Warning: large UDPs",
+        0: "Boot Warning",
         1: "HVPS Bias On",
         2: "Software Error",
         3: "Storage Warning",
         4: "Board Temp Exceeding",
         5: "FPGA Temp Exceeding",
-        6: "In HIGHPOWER",
-        7: "Timeout"
+        6: "PID Check Fail",
+        7: "R/W Error"
     }
 
 def get_defined_flags(flags_set):
